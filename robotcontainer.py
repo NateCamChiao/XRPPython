@@ -1,5 +1,5 @@
 from typing import Self
-from commands2 import Command, RunCommand
+from commands2 import Command, CommandScheduler, InstantCommand, RunCommand
 import commands2
 from wpilib import Field2d, Joystick, SendableChooser, SmartDashboard
 from commands2.button import Trigger, JoystickButton
@@ -9,10 +9,11 @@ import constants
 from subsystems.drivetrain import DriveTrain
 from pathplannerlib.auto import PathPlannerAuto
 from commands2.sysid import SysIdRoutine
+from wpimath.geometry import Translation2d
 
 class RobotContainer:
     field: Field2d = Field2d()
-    def __init__(self) -> None:        
+    def __init__(self) -> None:
         self.driveTrain: DriveTrain = DriveTrain()
         self.configureBindings()
         self.autoChooser = SendableChooser()
@@ -29,11 +30,12 @@ class RobotContainer:
     def configureBindings(self: Self) -> None:
         self.joystick: Joystick = Joystick(constants.ControllerConstants.kJoystickPort)
 
-
         self.dynamicForwardBtn: JoystickButton = JoystickButton(self.joystick, 1)
         self.dynamicBackwardBtn: JoystickButton = JoystickButton(self.joystick, 2)
         self.quasistaticForwardBtn: JoystickButton = JoystickButton(self.joystick, 3)
         self.quasistaticBackwardBtn: JoystickButton = JoystickButton(self.joystick, 4)
+        
+        self.drivePathBtn: JoystickButton = JoystickButton(self.joystick, 5)
 
         self.driveTrain.setDefaultCommand(self.driveTrain.telopCommand(
             lambda: -self.joystick.getRawAxis(1),
@@ -44,6 +46,13 @@ class RobotContainer:
         self.dynamicBackwardBtn.onTrue(self.driveTrain.sysIdDynamic(SysIdRoutine.Direction.kReverse))
         self.quasistaticForwardBtn.onTrue(self.driveTrain.sysIdQuasistatic(SysIdRoutine.Direction.kForward))
         self.quasistaticBackwardBtn.onTrue(self.driveTrain.sysIdQuasistatic(SysIdRoutine.Direction.kReverse))
+
+        self.drivePathBtn.onTrue(InstantCommand(
+            lambda: CommandScheduler.getInstance().schedule(
+                self.driveTrain.getForwardOTF(Translation2d(0.3, 0))
+            )
+        ))
+        
 
     def getAutoRoutine(self) -> Command:
         return self.autoChooser.getSelected()

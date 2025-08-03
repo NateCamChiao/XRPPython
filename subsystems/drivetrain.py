@@ -1,8 +1,10 @@
 import math
-from typing import Callable
+from time import sleep
+from typing import Callable, List
 
 from commands2 import Command, Subsystem, RunCommand
-from wpilib import Encoder, RobotController, SmartDashboard
+from pathplannerlib.path import Waypoint
+from wpilib import Encoder, RobotController, SmartDashboard, Timer
 from wpilib.drive import DifferentialDrive
 from wpimath.kinematics import DifferentialDriveOdometry, DifferentialDriveKinematics, DifferentialDriveWheelSpeeds
 from xrp import XRPGyro, XRPMotor
@@ -12,10 +14,13 @@ from wpimath.geometry import Pose2d
 from wpimath.kinematics import ChassisSpeeds
 from constants import DriveTrainConstants
 import robotcontainer
-from pathplannerlib.auto import AutoBuilder
+from pathplannerlib.auto import AutoBuilder, PathPlannerPath, PathConstraints
 from pathplannerlib.controller import PPLTVController
+from pathplannerlib.path import GoalEndState
+
 from pathplannerlib.config import RobotConfig
 from wpimath import units
+from wpimath.geometry import Translation2d, Pose2d, Transform2d, Rotation2d
 
 class DriveTrain(Subsystem):
     def __init__(self) -> None:
@@ -51,6 +56,8 @@ class DriveTrain(Subsystem):
             self.shouldFlipPath, # Supplier to control path flipping based on alliance color
             self # Reference to this subsystem to set requirements
         )
+        self.m_gyro.reset()
+        sleep(1)
 
     def getPose(self) -> Pose2d:
         return self.differentialOdometry.getPose()
@@ -94,6 +101,33 @@ class DriveTrain(Subsystem):
     def resetEncoders(self) -> None:
         self.m_leftEncoder.reset()
         self.m_rightEncoder.reset()
+    # Using on-the-fly path (OTF)
+    def getForwardOTF(self, translation: Translation2d) -> Command:
+        currentPose: Pose2d = AutoBuilder.getCurrentPose()
+        # calculate using 
+        targetPose: Pose2d = currentPose.transformBy(Transform2d(translation, Rotation2d()))
+        waypoints: List[Waypoint] = PathPlannerPath.waypointsFromPoses(
+            [
+                currentPose,
+                targetPose
+            ]
+        )
+        SmartDashboard.putNumber("current pose x", currentPose.X())
+        SmartDashboard.putNumber("current pose y", currentPose.rotation().degrees())
+        constraints = PathConstraints(
+            DriveTrainConstants.kMaxSpeedPerSecMeters, # Max velocity mps
+            5, # Max acceleration mps^2
+            1, # Max rpm
+            8/9 # Max acceleration rpm^2
+        )
+
+        path = PathPlannerPath(
+            waypoints,
+            constraints,
+            None,
+            GoalEndState(0, currentPose.rotation())
+        )
+        return AutoBuilder.followPath(path)
     # Drive drivetrain using arcade drive (used in telop)
     def drive(self, forwardSpeed: float, angularVelocity: float) -> None:
         self.differentialDrive.arcadeDrive(forwardSpeed, angularVelocity)
