@@ -12,12 +12,12 @@ os.environ["HALSIMXRP_HOST"] = "192.168.42.1"
 os.environ["HALSIMXRP_PORT"] = "3540"
 class MyRobot(commands2.TimedCommandRobot):
     field: Field2d = Field2d()
-    def __init__(self, period: float = wpilib.TimedRobot.kDefaultPeriod / 1000) -> None:
-        self.autonomousCommand = InstantCommand()
         
     def robotInit(self) -> None:
         super().robotInit()
+        self.autonomousCommand = InstantCommand()
         self.m_robotContainer: RobotContainer = RobotContainer()
+        
 
     def autonomousInit(self) -> None:
         """This autonomous runs the autonomous command selected by your RobotContainer class."""
